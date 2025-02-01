@@ -1,44 +1,45 @@
-// server.js
 const { createServer } = require('http');
 const { Server } = require('socket.io');
 
-// Minimal HTTP server
-const httpServer = createServer();
+const express = require('express');
+const app = express();
+const httpServer = createServer(app);
+
 const io = new Server(httpServer, {
   cors: {
-    origin: "*", // Allow all origins (replace with your frontend URL in production)
+    origin: "*", // Allow all origins (replace with frontend URL in production)
   }
 });
 
-// Track online users (simple example)
 const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
-  // Handle new user joining
   socket.on('join', (username) => {
     onlineUsers.set(socket.id, username);
-    io.emit('onlineUsers', Array.from(onlineUsers.values())); // Broadcast updated list
+    io.emit('onlineUsers', Array.from(onlineUsers.values())); // Update users
   });
 
-  // Handle messages
   socket.on('sendMessage', (message) => {
     const username = onlineUsers.get(socket.id);
-    io.emit('receiveMessage', { text: message, sender: username, timestamp: Date.now() });
+    if (username) {
+      io.emit('receiveMessage', { sender: username, text: message.text, timestamp: message.timestamp });
+    }
   });
 
-  // Handle disconnection
   socket.on('disconnect', () => {
     onlineUsers.delete(socket.id);
     io.emit('onlineUsers', Array.from(onlineUsers.values()));
   });
 });
 
-// Start server
-const PORT =  3001 || process.env.PORT;
-httpServer.listen(PORT, () => {
+// Add a simple HTTP route to verify the server is running
+app.get('/', (req, res) => {
+  res.send('Chat server is running...');
+});
+
+const PORT = process.env.PORT || 3001;
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('http://localhost:3001');
-  
 });
